@@ -37,8 +37,9 @@ names(train)
     ## make a massive text file
     ## include a <s> to identify start-stop for later n-gram
     product_titles <- paste(train_data$product_title, collapse=" startstop ")
+    product_descriptions <- paste(train_data$product_description, collapse=" startstop ")
     
-    ## compute text corpus
+    ## compute title text corpus
     t_c <- Corpus(VectorSource(product_titles))
     t_c <- tm_map(t_c, content_transformer(tolower))
     t_c <- tm_map(t_c, removePunctuation)
@@ -84,7 +85,7 @@ names(train)
 
     head(word_Sums, 100)
 
-    ## toeknize
+    ## tokenize titles
     library(RWeka)
 
     ## condition text
@@ -130,7 +131,45 @@ names(train)
         
     }
 
+    ## get three grams 
     three_gram<-term_freq_list(TermDM)
     three_gram<-three_gram[three_gram$frequency>2,]
 
+    title_three_gram<-three_gram
+
+    ## TWO GRAM
+    TermDM<-TermDocumentMatrix(t_c, control=list(tokenize=TwoGramTokenizer))
     
+    ## get three grams 
+    two_gram<-term_freq_list(TermDM)
+    two_gram<-two_gram[two_gram$frequency>2,]
+    
+    title_two_gram<-two_gram
+
+    ## here is a way to use grep to get rid of "startstop" terms
+    ## grep("startstop", two_gram$n_gram)
+
+## DESCRIPTION TOKENIZE
+
+    ## condition text
+    t_c <- Corpus(VectorSource(product_descriptions))
+    t_c <- tm_map(t_c, content_transformer(tolower))
+    t_c <- tm_map(t_c, removePunctuation)
+    t_c <- tm_map(t_c, removeNumbers)
+    t_c <- tm_map(t_c, removeWords, stopwords("english"))
+
+    ## Three_grams
+    TermDM<-TermDocumentMatrix(t_c, control=list(tokenize=ThreeGramTokenizer))
+    ## Get three grams 
+    three_gram<-term_freq_list(TermDM)
+    three_gram<-three_gram[three_gram$frequency>2,]
+    
+    description_three_gram<-three_gram
+
+    TermDM<-TermDocumentMatrix(t_c, control=list(tokenize=TwoGramTokenizer))
+
+    ## get two grams 
+    two_gram<-term_freq_list(TermDM)
+    two_gram<-two_gram[two_gram$frequency>2,]
+
+    description_two_gram<-two_gram
