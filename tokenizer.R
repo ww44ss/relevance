@@ -106,5 +106,31 @@ names(train)
 
     b<-findFreqTerms(TermDM, 10)
     
+    term_freq_list <- function(TermDM) {
+        ##
+        ## Turns a TDM into an n-gram frequency table
+        ##
+        ##
+        ## turn TDM into matrix
+        x_gram_matrix<-as.matrix(TermDM)
+        ## capture n-grams
+        n_gram<-rownames(x_gram_matrix)
+        ## convert to data frame
+        n_gram<-as.data.frame(n_gram)
+        ## aggregate term frequencies
+        frequency<-rowSums(x_gram_matrix)
+        ## bind terms and frequency data into columns of data frame
+        n_gram<-cbind(n_gram, frequency)
+        ## sort by decreasing frequency
+        n_gram<-n_gram[order(-frequency),]
+        ## renumber row names
+        rownames(n_gram)<-1:dim(n_gram)[1]
+        
+        return(n_gram)
+        
+    }
 
+    three_gram<-term_freq_list(TermDM)
+    three_gram<-three_gram[three_gram$frequency>2,]
 
+    
