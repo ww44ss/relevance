@@ -1,5 +1,32 @@
 library(readr)
 
+##
+##
+##
+## FUNCTIONS
+
+## Condition Text
+## does some operations on text to make functions well behaved
+condition_text<-function(s){
+    s<-tolower(s)
+    s<-gsub('[[:digit:]]+', '', s, perl=TRUE)  ## remove numbers
+    s<-gsub('[[:punct:]]+', '', s, perl=TRUE)  ## remove punctuation
+    s<-gsub('[[:digit:]]+', '', s, perl=TRUE)  ## remove numbers
+    s<-gsub(' [[:alpha:]] ', '', s, perl=TRUE)  ## isolated single letters
+    return(s)
+}
+
+## Condition Numbers
+## does some operations on text to just pull out numbers
+condition_numbers<-function(s){
+    ##
+    ## this function strips out all alpha characters
+    s<-tolower(s)
+    s<-gsub('[[:punct:]]+', '', s, perl=TRUE)  ##remove punctuation
+    s<-gsub('[[:alpha:]]+', '', s, perl=TRUE)  ## remover letters
+    return(s)
+}
+
 # Use readr to read in the training and test data
 train = read_csv("./relevance/train.csv")
 test  = read_csv("./relevance/test.csv")
@@ -30,51 +57,66 @@ names(train)
 
     ## create model training and test subsets
     set.seed(8675309)
-    sample_rows <- sample(1:nrow(train), size=0.2*nrow(train))
+    sample_rows <- sample(1:nrow(train), size=0.4*nrow(train))
     train_data<-train[sample_rows,]
     test_data<-train[-sample_rows,]
 
     ## make a massive text file
-    ## include a <s> to identify start-stop for later n-gram
-    product_titles <- paste(train_data$product_title, collapse=" startstop ")
-    product_descriptions <- paste(train_data$product_description, collapse=" startstop ")
-    
-    ## compute title text corpus
-    t_c <- Corpus(VectorSource(product_titles))
-    t_c <- tm_map(t_c, content_transformer(tolower))
-    t_c <- tm_map(t_c, removePunctuation)
-    t_c <- tm_map(t_c, removeNumbers)
-    t_c <- tm_map(t_c, removeWords, stopwords("english"))
-    
-    
-    tdm<-TermDocumentMatrix(t_c)
+    product_titles <- paste(train_data$product_title, collapse=" ")
+    product_descriptions <- paste(train_data$product_description, collapse=" ")
 
-    ## explore
-    findAssocs(tdm, "startstop", 0.0001)
-    findAssocs(tdm, "black", 1)
-    findAssocs(tdm, "men", 0.1)
+
+    ## include a <s> to identify start-stop for later n-gram
+    #product_titles <- paste(train_data$product_title, collapse=" startstop ")
+    #product_descriptions <- paste(train_data$product_description, collapse=" startstop ")
+
+    ## clean up the text
+    product_titles <-condition_text(product_titles)
+    product_descriptions <- condition_text(product_descriptions)
+
+    ## compute title text corpus
+    corpus_titles <- Corpus(VectorSource(product_titles))
+    corpus_descriptions <- Corpus(VectorSource(product_descriptions))
+    #t_c <- tm_map(t_c, content_transformer(tolower))
+    #t_c <- tm_map(t_c, removePunctuation)
+    #t_c <- tm_map(t_c, removeNumbers)
+    corpus_titles <- tm_map(corpus_titles, removeWords, stopwords("english"))
+    corpus_descriptions <- tm_map(corpus_descriptions, removeWords, stopwords("english"))
+    
+    
+    titles_tdm<-TermDocumentMatrix(corpus_titles)
+    descriptions_tdm<-TermDocumentMatrix(corpus_descriptions)
+
 
     ## convert to matrix
-    tdm_matrix<-as.matrix(tdm)
+    titles_matrix<-as.matrix(titles_tdm)
+    descriptions_matrix<-as.matrix(descriptions_tdm)
 
-    word_Sums <- rowSums(tdm_matrix)
-    word_Sums <- sort(word_Sums, decreasing=TRUE)
+    titles_word_Sums <- rowSums(titles_matrix)
+    descriptions_word_Sums <- rowSums(descriptions_matrix)
+    titles_word_Sums <- sort(titles_word_Sums, decreasing=TRUE)
+    descriptions_word_Sums <- sort(descriptions_word_Sums, decreasing=TRUE)
 
     ## convert to a data frame
-    word_Sums <- as.data.frame(word_Sums)
+    titles_word_Sums <- as.data.frame(titles_word_Sums)
+    descriptions_word_Sums <- as.data.frame(descriptions_word_Sums)
 
     ## add some interesting data
-    word_Sums$word<-rownames(word_Sums)
-    word_Sums$nchar<-nchar(word_Sums$word)
+    titles_word_Sums$word<-rownames(titles_word_Sums)
+    titles_word_Sums$nchar<-nchar(titles_word_Sums$word)
+    
+    descriptions_word_Sums$word<-rownames(descriptions_word_Sums)
+    descriptions_word_Sums$nchar<-nchar(descriptions_word_Sums$word)
 
     ##keep nchar sane
-    word_Sums<-word_Sums[word_Sums$nchar<11,]
+    #word_Sums<-word_Sums[word_Sums$nchar<11,]
 
     ## add a rank index
     word_Sums$rank<-1:dim(word_Sums)[1]
 
     ## keep only the first 5000 
     word_Sums <- word_Sums[word_Sums$rank<5000,] 
+    word_Sums<-word_Sums[-1,]
 
     ## plot the data (use Log10 since that is easier  for most people to interpret)
     p <- ggplot(word_Sums, aes(y=log10(word_Sums), x=log10(rank), size=factor(nchar))) 
@@ -88,24 +130,22 @@ names(train)
     ## tokenize titles
     library(RWeka)
 
-    ## condition text
-    t_c <- Corpus(VectorSource(product_titles))
-    t_c <- tm_map(t_c, content_transformer(tolower))
-    t_c <- tm_map(t_c, removePunctuation)
-    t_c <- tm_map(t_c, removeNumbers)
-    t_c <- tm_map(t_c, removeWords, stopwords("english"))
-
     ##Need to specify one core for Java to work properly
     options(mc.cores=1)
 
+    OneGramTokenizer <- function(x) {NGramTokenizer(x,Weka_control(min=1, max=1))}
     TwoGramTokenizer <- function(x) {NGramTokenizer(x,Weka_control(min=2, max=2))}
     ThreeGramTokenizer <- function(x) {NGramTokenizer(x,Weka_control(min=3, max=3))}
 
     #DTM<-DocumentTermMatrix(t_c)
-    TermDM<-TermDocumentMatrix(t_c, control=list(tokenize=ThreeGramTokenizer))
+    TermDM_1<-TermDocumentMatrix(t_c, control=list(tokenize=OneGramTokenizer))
+    TermDM_2<-TermDocumentMatrix(t_c, control=list(tokenize=TwoGramTokenizer))
+    TermDM_3<-TermDocumentMatrix(t_c, control=list(tokenize=ThreeGramTokenizer))
     #TermDM <- removeSparseTerms(TermDM, 0.75)
 
-    b<-findFreqTerms(TermDM, 10)
+    findFreqTerms(TermDM_1, 10)[1:5]
+    findFreqTerms(TermDM_2, 10)[1:5]
+    findFreqTerms(TermDM_3, 10)[1:5]
     
     term_freq_list <- function(TermDM) {
         ##
@@ -132,10 +172,14 @@ names(train)
     }
 
     ## get three grams 
-    three_gram<-term_freq_list(TermDM)
-    three_gram<-three_gram[three_gram$frequency>2,]
+    three_gram<-term_freq_list(TermDM_3)
+    two_gram<-term_freq_list(TermDM_2)
+    one_gram<-term_freq_list(TermDM_1)
+    
+    head(three_gram)
+    head(two_gram)
+    head(one_gram)
 
-    title_three_gram<-three_gram
 
     ## TWO GRAM
     TermDM<-TermDocumentMatrix(t_c, control=list(tokenize=TwoGramTokenizer))
