@@ -138,14 +138,14 @@ names(train)
     ## plot the data (use Log10 since that is easier  for most people to interpret)
     p <- ggplot(titles_word_Sums, aes(y=log10(titles_word_Sums), x=log10(rank), size=factor(nchar))) 
     p <- p + geom_point(color="orange4", alpha=0.8)
-    p<- p + ggtitle("Titles Word Frequency follows Zipf's Law")
+    p<- p + ggtitle("Titles Word Freq & Zipf's Law")
     
     print(p)
 
     ## plot the data (use Log10 since that is easier  for most people to interpret)
     p <- ggplot(descriptions_word_Sums, aes(y=log10(descriptions_word_Sums), x=log10(rank), size=factor(nchar))) 
-    p <- p + geom_point(color="orange4", alpha=0.8)
-    p<- p + ggtitle("Descriptions Word Frequency follows Zipf's Law")
+    p <- p + geom_point(color="orange3", alpha=0.8)
+    p<- p + ggtitle("Descriptions Word Freq & Zipf's Law")
     
     print(p)
 
